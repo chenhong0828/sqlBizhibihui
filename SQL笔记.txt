@@ -1,0 +1,394 @@
+1: 在mysql中分析语句执行时间
+	select @@profiling;
+	set profiling=1;
+	show profiles;
+
+2：在 SELECT 查询结果中增加一列固定的常数列
+	如果常数是个字符串，使用单引号（' '），比如'王者荣耀'。
+	单引号说明引号中的字符串是个常数，否则SQL会把王者荣耀当成列名进行查询，
+	如果常数是英文字母，比如'WZRY'也需要加引号。
+	如果常数是个数字，就可以直接写数字，不需要单引号。
+	SELECT '王者荣耀' as platform, name FROM heros
+
+3：DISTINCT 需要放到所有查询的列名前面
+
+4：ORDER BY 可以使用非选择列进行排序，所以即使在 SELECT 后面没有这个列名，同样可
+	以放到 ORDER BY 后面进行排序。
+
+5：约束返回结果的数量，在不同的 DBMS 中使用的关键字可能不同。
+	在 MySQL、PostgreSQL、MariaDB 和 SQLite 中使用 LIMIT 关键字，而且需要放到
+	SELECT 语句的最后面。
+	如果是 SQL Server 和 Access，需要使用 TOP 关键字，如：
+	SELECT TOP 5 name, hp_max FROM heros ORDER BY hp_max DESC;
+	如果是 DB2，在最后加上FETCH FIRST 5 ROWS ONLY
+	如果是 Oracle，对排序结果进行子查询，在WHERE语句中加上ROWNUM来限制数量
+
+6：关键字顺序：SELECT ... FROM ... WHERE ... GROUP BY ... HAVING ... ORDER BY ...
+	执行顺序：FROM > WHERE > GROUP BY > HAVING > SELECT 的字段 > DISTINCT > 
+			ORDER BY > LIMIT
+
+7：当 WHERE 子句中同时存在 OR 和 AND 的时候，AND 执行的优先级会更高
+	括号优先级高于AND
+	
+8：某一字段的取值是XX或者是XX，可以使用IN逻辑运算
+	具体的日期要加引号
+
+9：LIKE操作符与通配符搭配使用，（%）代表任意个字符，而（_）只代表一个字符
+	LIKE后面以(%)开头会进行全表扫描，若Like后面不以(%)开头，而以(%)结尾，并且检索
+	的子弹进行了索引，则不会进行全表扫描
+
+10：内置函数
+	（1）算数函数：ABS() MOD() ROUND()
+	（2）字符串函数
+		CONCAT() 将多个字符串拼接起来
+		LENGTH() 计算字段的长度，一个汉字算三个字符，一个数字或字母算一个字符
+		CHAR_LENGTH() 计算字段的长度，汉字、数字、字母都算一个字符
+		LOWER() 将字符串中的字符转换为小写
+		UPPER() 将字符串中的字符转换为大写
+		REPLACE() 替换函数，有3个参数，分别为：要替换的表达式或字段名、想要查找
+		的被替换的字符串、替换成哪个字符串
+		SUBSTRING() 截取字符串，有3个参数，分别为：待截取的表达式或字段名、开始
+		截取的位置、想要截取的字符串长度
+	（3）日期函数
+		CURRENT_DATE() 系统当前日期
+		CURRENT_TIME() 系统当前时间，没有具体的日期
+		CURRENT_TIMESTAMP() 系统当前时间，包括具体的日期+时间
+		EXTRACT() 抽取具体的年、月、日，SELECT EXTRACT(YEAR FROM '2019-04-03')
+		DATE() 返回时间的日期部分，DATE 日期格式必须是 yyyy-mm-dd 的形式
+			如果要进行日期比较，就要使用 DATE 函数，不要直接使用日期与字符串进行
+			比较
+		YEAR() 返回时间的年份部分
+		MONTH() 返回时间的月份部分
+		DAY() 返回时间的天数部分
+		HOUR()
+		MINUTE()
+		SECOND()
+	（4）转换函数
+		CAST(原始数据 AS 目标数据类型)，不会四舍五入，如果直接小数转整数会报错，
+		可以借助DECIMAL(a, b)，其中a代表整数部分和小数部分加起来的最大位数，b代
+		表小数位数
+		COALESCE() 返回第一个非空数值
+	
+	（5）聚集函数
+		COUNT() 
+			COUNT(字段)会忽略值为 NULL 的数据行，而 COUNT(*) 只是统计数据行数，
+			不管某个字段是否为 NULL。
+		MAX()
+		MIN()
+		SUM()
+		AVG()
+		AVG、MAX、MIN 等聚集函数会自动忽略值为 NULL 的数据行，MAX 和 MIN 函数也
+		可以用于字符串类型数据的统计，如果是英文字母，则按照 A—Z 的顺序排列，越
+		往后，数值越大。如果是汉字则按照全拼拼音进行排列。使用
+		CONVERT(name USING gbk)，然后再使用 MIN 和 MAX 取最小值和最大值
+		
+11：查找最大生命值最大的是哪个英雄，以及对应的数值，就需要分成两个步骤来处理：
+	首先找到英雄的最大生命值的最大值，即SELECT MAX(hp_max) FROM heros，
+	然后再筛选最大生命值等于这个最大值的英雄
+	SELECT name, hp_max FROM heros WHERE hp_max = (SELECT MAX(hp_max) FROM heros);
+	
+12：比如 MySQL 在 Linux 的环境下，数据库名、表名、变量名是严格区分大小写的，而字
+	段名是忽略大小写的。而 MySQL 在 Windows 的环境下全部不区分大小写。
+	
+13：关联子查询：
+	EXISTS 子查询若有返回结果，则为True，无返回结果则为 False。
+	为Ture则执行主SQL语句，返回外查询结果，为False则不执行
+	NOT EXISTS 若子查询有返回结果，则为False，无返回结果则为True
+	带有EXISTS的查询会遍历外表的每一行
+	外表大、内表小用IN，外表小、内表大用EXISTS
+	https://www.linuxidc.com/Linux/2016-04/130285.htm
+	
+	非关联子查询与主查询的执行无关，只需要执行一次即可，而关联子查询，则需要将主
+	查询的字段值传入子查询中进行关联查询。
+	
+14：集合比较子查询
+	IN 判断是否在集合中（非关联子查询）
+	ANY 需要和比较操作符一起使用，包括（>、=、<、>=、<=、<>），与子查询返回的任
+		何值做比较
+	ALL 需要和比较操作符一起使用，与子查询返回的所有值做比较
+
+15：子查询也可以作为主查询的计算字段
+	如：SELECT team_name, (SELECT count(*) FROM player 
+	WHERE player.team_id = team.team_id) AS player_num FROM team；
+
+16： SQL92 中的 5 种连接方式
+	（1）笛卡尔积
+		SELECT *　FROM a, b;
+		结果为a中的任一行与b中的任一行的所有可能组合
+	（2）等值连接
+		用两张表中都存在的列进行连接
+		SELECT player_id, a.team_id, player_name, height, team_name FROM 
+		player a, team b WHERE a.team_id = b.team_id;
+	（3）非等值连接
+		当我们进行多表查询的时候，如果连接多个表的条件是等号时，就是等值连接，
+		其他的运算符连接就是非等值查询。
+		SELECT player_name, height, height_level FROM player, height_grades 
+		WHERE height BETWEEN height_lowest AND height_highest;
+
+	（4）外连接
+		如果是多张表的外连接，那么第一张表是主表，即显示全部的行，而第剩下的表则
+		显示对应连接的信息。在 SQL92 中采用（+）代表从表所在的位置，而且在 SQL92
+		中，只有左外连接和右外连接，没有全外连接。
+		①左外连接
+			左外连接，就是指左边的表是主表，需要显示左边表的全部行，而右侧的表是
+			从表，（+）表示哪个是从表。
+			SELECT * FROM player, team where player.team_id = team.team_id(+)
+			相当于SQL99中的：
+			SELECT * FROM player LEFT JOIN team ON player.team_id = team.team_id
+		②右外连接
+			右边的表是主表，需要显示右边表的全部行，而左侧的表是从表。
+			SELECT * FROM player, team WHERE player.team_id(+) = team.team_id;
+			相当于SQL99中的：
+			SELECT * FROM player RIGHT JOIN team ON player.team_id = team.team_id
+	（5）自连接
+		自连接可以对多个表进行操作，也可以对同一个表进行操作。也就是说查询条件
+		使用了当前表的字段。
+		自连接是两个表先做笛卡尔积然后根据WHERE条件筛选结果
+		比如我们想要查看比布雷克·格里芬高的球员都有谁，以及他们的对应身高
+		SELECT b.player_name, b.height FROM player as a , player as b WHERE 
+		a.player_name = '布雷克-格里芬' and a.height < b.height;
+
+17：SQL99中的链接查询
+	（1）交叉连接 （即SQL92中的笛卡尔乘积）
+		SELECT * FROM t1 CROSS JOIN t2 CROSS JOIN t3；
+	（2）自然连接 （即SQL92中的等值连接）
+		SELECT * FROM t1 NATURAL JOIN t2;
+	（3）ON连接
+		指定我们想要的连接条件，可实现自然连接，非等值连接的功能
+	（4）USING连接
+		可以用 USING 指定数据表里的同名字段进行等值连接
+		SELECT * FROM t1 JOIN t2 USING(id);
+		可以简化ON等值连接
+	（5）外连接
+		LEFT JOIN、RIGHT JOIN、FULL JOIN（MYSQL不支持全外连接）
+	（6）自连接
+		SELECT b.player_name, b.height FROM player a JOIN player b ON 
+		a.player_name = '布雷克-格里芬' and a.height < b.height;
+	
+18：视图
+	（1）创建视图
+	CREATE VIEW view_name AS SELECT column1, column2 FROM table WHERE condition；
+		就是基于 SQL 语句的结果集形成一张虚拟表
+		可以嵌套视图，即创建好一张视图之后，还可以在它的基础上继续创建视图
+	（2）修改视图
+	ALTER VIEW view_name AS SELECT column1, column2	FROM table WHERE condition；
+	（3）删除视图
+	DROP VIEW view_name;
+	（4）利用视图进行格式化
+	（5）利用视图进行字段计算
+	底表数据更新后，视图也会自动更新
+	
+19：创建一个add_num的存储过程
+	（1）Navicat工具中	
+	CREATE PROCEDURE `add_num`(IN n INT)
+	BEGIN
+		DECLARE i INT;
+		DECLARE sum INT;
+		
+		SET i = 1;
+		SET sum = 0;
+		
+		WHILE i <= n DO
+			SET sum = sum + i;
+			SET i = i + 1;
+		END WHILE;
+		SELECT sum;
+	END;
+	
+	计算1-50的累加求和
+	CALL add_num(50);
+	（2）直接用MySQL
+	需要用DELIMITER来定义新的结束符，新的结束符可以用（//）或者（$$）
+	DELIMITER //
+	CREATE PROCEDURE `add_num`(IN n INT)
+	.........
+	.........
+	.........
+	END //
+	DELIMITER;
+
+20：存储过程的3种参数类型
+	（1）IN 向存储过程传入参数，存储过程中修改该参数的值，不能被返回
+	（2）OUT 把存储过程计算的结果放到该参数中，调用者可以得到返回值
+	（3）INOUT 既用于存储过程的传入参数，同事又可以把机损结果放到参数中，调用者
+		可以得到返回值
+	CREATE PROCEDURE `get_hero_scores`(
+		OUT max_max_hp FLOAT,
+		OUT min_max_mp FLOAT,
+		OUT avg_max_attack FLOAT,
+		s VARCHAR(255)
+		)
+	BEGIN
+		SELECT MAX(hp_max), MIN(mp_max), AVG(attack_max) FROM heros 
+		WHERE role_main = s
+		INTO max_max_hp, min_max_mp, avg_max_attack;
+	END;
+	调用存储过程
+	CALL get_hero_scores(@max_max_hp, @min_max_mp, @avg_max_attack, '战士');
+	SELECT @max_max_hp, @min_max_mp, @avg_max_attack;
+	
+	以at符号(@)开头的标识符表示一个本地的变量或者参数
+	一个以数字符号(#)开头的标识符代表一个临时表或者过程
+	一个以两个数字符号(##)开头的标识符标识的是一个全局临时对象
+	
+	
+	CREATE PROCEDURE `get_sum_score`(
+		OUT sum_max_hp FLOAT,
+		s VARCHAR(255)
+		)
+    BEGIN
+		SELECT SUM(hp_max) FROM heros WHERE role_main = s INTO sum_max_hp;
+    END;
+	
+21：事务的特性：ACID
+	（1）A  原子性(Atomicity)，不可分割，数据处理操作的基本单位
+	（2）C  一致性(Consistency)，由原来的一致状态，变成另一种一致的状态
+	（3）I  隔离性(Isolation)，每个事务相互独立
+	（4）D  持久性(Durability)，对数据的修改是持久的
+	
+22：SHOW ENGINES命令查看当前MySQL支持的存储引擎有哪些，以及是否支持事务
+	常用的控制语句
+	（1）START TRANSACTION 或者 BEGIN，作用是显式开启一个事务
+	（2）COMMIT，提交事务。当提交事务后，对数据库的修改是永久性的。
+	（3）ROLLBACK 或者 ROLLBACK TO [SAVEPOINT]，意为回滚事务
+	（4）SAVEPOINT，在事务中创建保存点，方便后续针对保存点进行回滚。一个事务中
+		可以存在多个保存点。
+	（5）RELEASE SAVEPOINT，删除某个保存点。
+	（6）SET TRANSACTION，设置事务的隔离级别。
+
+23：MySQL中completion_type参数的作用
+	（1）completion_type = 0，默认情况，当我们执行 COMMIT 的时候会提交事务，
+		在执行下一个事务时，还需要我们使用 START TRANSACTION 或者 BEGIN 来开启。
+	（2）completion_type = 1，当我们提交事务后，相当于执行了 COMMIT AND CHAIN，
+		也就是开启一个链式事务，即当我们提交事务之后会开启一个相同隔离级别的事务
+	（3）completion_type = 2，COMMIT=COMMIT AND RELEASE，也就是当我们提交后，
+		会自动与服务器断开连接。
+	
+24：事务的隔离级别
+	（1）Read Uncommitted：一个事务会读到另一个事务更新但未提交的数据，如果另一
+		个事务回滚，那么当前事务读到的数据就是脏数据，即为脏读（Dirty Read）
+	（2）Read Committed：该隔离级别下，一个事务可能会遇到不可重复读（
+		Non Repeatable Read）的问题。
+		不可重复读是指，在一个事务内，多次读同一数据，在这个事务还没有结束时，
+		如果另一个事务恰好修改了这个数据，那么，在第一个事务中，两次读取的数据就
+		可能不一致。
+	（3）Repeatable Read：该隔离级别下，一个事务可能会遇到幻读（Phantom Read）
+		的问题。
+		幻读是指，在一个事务中，第一次查询某条记录，发现没有，但是，当试图更新这
+		条不存在的记录时，竟然能成功，并且，再次读取同一条记录，它就神奇地出现了。
+		注：事务B查询发现没有，事务A插入，事务B再查询依然没有（可重复读），
+		但事务B更新却能成功，事务B再次查询有了
+		
+		在MySQL中，如果使用InnoDB，默认的隔离级别是Repeatable Read。
+		
+	（4）Serializable：最严格的隔离级别，所有事务按照次序依次执行，不会出现脏读、
+		不可重复读、幻读
+		但是，由于事务是串行执行，所以效率会大大下降，应用程序的性能会急剧降低
+	
+	在MySQL中，SHOW VARIABLES LIKE 'transaction_isolation';可查看当前会话的隔离
+	级别，设置隔离级别
+	SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+25：Python连接MySQL
+# -*- coding: UTF-8 -*-
+
+import mysql.connector
+
+# 连接数据库
+db = mysql.connector.connect(
+    host = 'localhost',
+    user = 'root',
+    passwd = '123456',
+    database = 'nba_data',
+    auth_plugin = 'mysql_native_password'
+)
+
+# 创建游标
+cursor = db.cursor()
+
+# 插入数据
+sql = "INSERT INTO player (team_id, player_name, height) VALUES (%s, %s, %s)"
+# SQL 语句里要统一用（%s）进行占位，否则就会报错。不论插入的数值为整数类型，
+还是浮点类型，都需要统一用（%s）进行占位。
+val = (1003, "约翰-科林斯", 2.08)
+cursor.execute(sql, val)
+db.commit()
+print(cursor.rowcount, " 记录插入成功。")
+
+# 查询数据
+sql = "SELECT player_id, player_name, height FROM player WHERE height >= 2.08"
+cursor.execute(sql)
+data = cursor.fetchall()
+for each_player in data:
+    print(each_player)
+
+# 修改数据
+sql = "UPDATE player SET height = %s WHERE player_name = %s"
+val = (2.09, "约翰-科林斯")
+cursor.execute(sql, val)
+db.commit()
+print(cursor.rowcount, " 记录被修改。")
+
+# 删除数据
+sql = "DELETE FROM player WHERE player_name = %s"
+val = ("约翰-科林斯",)
+cursor.execute(sql,val)
+db.commit()
+print(cursor.rowcount, " 记录删除成功。")
+
+cursor.close()
+db.close()
+
+26：（1）使用cursor.execute(query_sql)，执行数据库查询；
+	（2）使用cursor.fetchone()，读取数据集中的一条数据；
+	（3）使用cursor.fetchall()，取出数据集中的所有行，返回一个元组 tuples 类型；
+	（4）使用cursor.fetchmany(n)，取出数据集中的多条数据，同样返回一个元组 tuples；
+	（5）使用cursor.rowcount，返回查询结果集中的行数。如果没有查询到数据或者还没
+		有查询，则结果为 -1，否则会返回查询得到的数据行数；
+	（6）使用cursor.close()，关闭游标。
+
+27：Python打印异常信息
+import traceback
+
+try:
+	..............
+except Exception as e:
+	traceback.print_exc()
+	db.rollback()
+	
+28：范式设计：
+	1NF 需要保证表中每个属性都保持原子性；
+	2NF 需要保证表中的非主属性与候选键完全依赖；
+	3NF 需要保证表中的非主属性与候选键不存在传递依赖。
+	BCNF，也叫做巴斯 - 科德范式，它在 3NF 的基础上消除了主属性对候选键的部分依赖
+	或者传递依赖关系
+	
+29：索引
+	（1）功能逻辑
+	普通索引	无任何约束，主要用于提高查询效率,可以有多个
+	唯一索引	普通索引的基础上增加了数据一致性约束,可以有多个
+	主键索引	唯一索引的基础上增加了不为空的约束,一张数据表中只能有一个
+	全文索引	MySQL 自带的全文索引只支持英文，可以采用专门的全文搜索引擎，比如
+				ES(ElasticSearch) 和 Solr
+	（2）物理实现方式
+	聚集索引	按照主键排序存储数据，只能有一个聚集索引
+	非聚集索引	二级索引或辅助索引，索引项是按照顺序存储的，但索引项指向的内容是
+				随机存储的。第一次先找到索引，第二次找到索引对应的位置取出数据行。
+				可以有多个非聚集索引，也就是多个索引目录提供数据检索。
+	使用聚集索引的时候，数据的查询效率高，但如果对数据进行插入，删除，更新等操作，
+	效率会比非聚集索引低
+	（3）按照字段个数
+	单一索引
+	联合索引	注意创建时的顺序问题，联合索引 (x, y, z) 和 (z, y, x) 在使用的
+				时候效率可能会存在差别。
+	联合索引存在最左匹配原则，也就是按照最左优先的方式进行索引的匹配。比如刚才举
+	例的 (x, y, z)，如果查询条件是 WHERE x=1 AND y=2 AND z=3，就可以匹配上联合索
+	引；如果查询条件是 WHERE y=2，就无法匹配上联合索引。
+
+30：对 WHERE 子句的字段建立索引，可以大幅提升查询效率。
+	采用聚集索引进行数据查询，比使用非聚集索引的查询效率略高。如果查询次数比较多，
+	还是尽量使用主键索引进行数据查询
+	
+	多个单列索引在多条件查询时只会生效一个索引（MySQL 会选择其中一个限制最严格的
+	作为索引）,所以在多条件联合查询的时候最好创建联合索引。
+	
